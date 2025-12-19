@@ -1,0 +1,26 @@
+[project]
+name = "gpt-lecture"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "graphviz>=0.21",
+    "matplotlib>=3.10.7",
+    "numpy>=2.3.5",
+    "plotext>=5.3.2",
+    "smartopen>=0.2",
+    "torch>=2.9.1",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.1.0",
+    "jupyter>=1.1.1",
+    "jupyterlab>=4.4.10",
+    "pre-commit>=4.0.1",
+    "ruff>=0.14.5",
+    "scikit-learn>=1.7.2",
+    "snakeviz>=2.2.2",
+    "ty>=0.0.3",
+]
