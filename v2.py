@@ -92,6 +92,23 @@ class MultiHeadAttention(nn.Module):
         return torch.cat([h(x) for h in self.heads], dim=-1)
 
 
+class FeedForward(nn.Module):
+    """a simple linear layer followed by a non-linearity"""
+
+    def __init__(self, n_embed):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(n_embed, n_embed),
+            nn.ReLU(),
+        )
+
+    def forward(self, x):
+        # this is per-token transformer. data is collected by communicating
+        # during self-attention & then this feed-forward layer gives
+        # opportunity to think.
+        return self.net(x)
+
+
 class BigramLanguageModel(nn.Module):
     def __init__(self):
         super().__init__()
@@ -101,6 +118,7 @@ class BigramLanguageModel(nn.Module):
         self.sa_head = MultiHeadAttention(
             4, n_embed // 4
         )  # 4 heads of 8-dim self-attention
+        self.ffwd = FeedForward(n_embed)
         self.lm_head = nn.Linear(n_embed, vocab_size)
 
     def forward(self, idx, targets=None):
@@ -112,6 +130,7 @@ class BigramLanguageModel(nn.Module):
         # token embeddings as well as the info about what positions are these tokens at
         x = tok_emb + pos_emb
         x = self.sa_head(x)
+        x = self.ffwd(x)
         logits = self.lm_head(x)  # (B, T, vocab_size)
 
         if targets is None:
