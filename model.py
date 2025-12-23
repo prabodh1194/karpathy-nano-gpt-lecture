@@ -121,3 +121,14 @@ class GPTLanguageModel(nn.Module):
             idx_next = torch.multinomial(probs, num_samples=1)
             idx = torch.cat((idx, idx_next), dim=1)
         return idx
+
+    def generate_stream(self, idx, max_new_tokens):
+        """Generate tokens one at a time, yielding each token index."""
+        for _ in range(max_new_tokens):
+            idx_cond = idx[:, -self.block_size :]
+            logits, _ = self(idx_cond)
+            logits = logits[:, -1, :]
+            probs = F.softmax(logits, dim=-1)
+            idx_next = torch.multinomial(probs, num_samples=1)
+            idx = torch.cat((idx, idx_next), dim=1)
+            yield idx_next.item()

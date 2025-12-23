@@ -1,3 +1,6 @@
+import logging
+import time
+
 import click
 import torch
 from smart_open import open as smart_open
@@ -5,7 +8,16 @@ from smart_open import open as smart_open
 from checkpoint import get_latest_checkpoint
 from model import GPTLanguageModel
 
+# configure logging with microseconds
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s.%(msecs)03d - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger(__name__)
+
 # load vocab from same source as training
+logger.debug("Loading vocabulary from TinyShakespeare...")
 with smart_open(
     "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt",
     "r",
@@ -16,15 +28,19 @@ with smart_open(
 chars = sorted(list(set(text)))
 stoi = {ch: i for i, ch in enumerate(chars)}
 itos = {i: ch for i, ch in enumerate(chars)}
+logger.debug(f"Vocabulary size: {len(chars)}")
 
 
-def decode(ls):
-    return "".join([itos[i] for i in ls])
+def decode_token(idx):
+    return itos[idx]
 
 
 def load_model_from_checkpoint(checkpoint_path, device):
+    logger.debug(f"Loading checkpoint from {checkpoint_path}")
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     config = checkpoint["config"]
+
+    logger.debug(f"Model config: {config}")
 
     model = GPTLanguageModel(
         vocab_size=config["vocab_size"],
@@ -39,6 +55,7 @@ def load_model_from_checkpoint(checkpoint_path, device):
     model.to(device)
     model.eval()
 
+    logger.debug("Model loaded and set to eval mode")
     return model, checkpoint
 
 
@@ -69,24 +86,36 @@ def generate(checkpoint, tokens, device):
         if checkpoint is None:
             raise click.ClickException("No checkpoint found in checkpoints/")
 
-    click.echo(f"Loading checkpoint: {checkpoint}")
+    logger.info(f"Loading checkpoint: {checkpoint}")
     model, ckpt_data = load_model_from_checkpoint(checkpoint, device)
 
-    click.echo(f"Checkpoint from iteration {ckpt_data['iteration']}")
+    logger.info(f"Checkpoint from iteration {ckpt_data['iteration']}")
     if ckpt_data.get("train_loss"):
-        click.echo(
+        logger.info(
             f"Train loss: {ckpt_data['train_loss']:.4f}, Val loss: {ckpt_data['val_loss']:.4f}"
         )
 
-    click.echo(f"Generating {tokens} tokens...")
+    logger.info(f"Generating {tokens} tokens (streaming)...")
+    print("\n" + "=" * 80, flush=True)
 
     context = torch.zeros((1, 1), dtype=torch.long, device=device)
-    with torch.no_grad():
-        output = model.generate(context, max_new_tokens=tokens)
+    t_start = time.time()
 
-    generated_text = decode(output[0].tolist())
-    click.echo("\n" + "=" * 80)
-    click.echo(generated_text)
+    with torch.no_grad():
+        for i, token_idx in enumerate(
+            model.generate_stream(context, max_new_tokens=tokens)
+        ):
+            char = decode_token(token_idx)
+            print(char, end="", flush=True)
+
+    t_end = time.time()
+    print("\n" + "=" * 80, flush=True)
+
+    elapsed = t_end - t_start
+    tokens_per_sec = tokens / elapsed
+    logger.info(
+        f"Generated {tokens} tokens in {elapsed:.2f}s ({tokens_per_sec:.1f} tokens/sec)"
+    )
 
 
 if __name__ == "__main__":

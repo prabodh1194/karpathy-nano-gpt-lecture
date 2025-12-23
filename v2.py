@@ -143,6 +143,13 @@ for iter in range(max_iters):
 
     logger.info(f"step {iter}: optim_time={t2 - t1:.2f}s")
 
+# save final checkpoint
+final_losses = estimate_loss()
+final_ckpt_path = os.path.join(checkpoint_dir, "checkpoint_final.pt")
+save_checkpoint(
+    model, optimizer, max_iters, final_losses, final_ckpt_path, model_config
+)
+
 # generate from the model
 context = torch.zeros((1, 1), dtype=torch.long, device=device)
 logger.info(
