@@ -1,9 +1,21 @@
+import logging
+import os
 import time
 
 from smart_open import open
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+
+from checkpoint import save_checkpoint
+
+# configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger(__name__)
 
 # hyperparameters
 batch_size = 64 // 2  # how many independent sequences will we process in parallel?
@@ -17,6 +29,8 @@ n_embed = 384
 n_head = 6
 n_layer = 6
 dropout = 0.2
+checkpoint_dir = "checkpoints"
+checkpoint_every_n_evals = 3  # save every N evals
 # ------------
 
 torch.manual_seed(1337)
@@ -209,8 +223,14 @@ def estimate_loss():
     return out
 
 
-# super simple bigram model
-
+# model config for checkpointing
+model_config = {
+    "n_embed": n_embed,
+    "n_head": n_head,
+    "n_layer": n_layer,
+    "block_size": block_size,
+    "vocab_size": vocab_size,
+}
 
 model = BigramLanguageModel()
 m = model.to(device)
@@ -218,16 +238,21 @@ m = model.to(device)
 # create a PyTorch optimizer
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
+eval_count = 0
 for iter in range(max_iters):
-    # every once in a while evaluate the loss on train and val sets
     t1 = time.time()
+
+    # evaluate and checkpoint periodically
     if iter % eval_interval == 0:
         losses = estimate_loss()
         t2 = time.time()
-        print(
-            f"loss step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}",
-            f"time {t2 - t1:.2f}",
+        logger.info(
+            f"step {iter}: train_loss={losses['train']:.4f}, val_loss={losses['val']:.4f}, eval_time={t2 - t1:.2f}s"
         )
+        eval_count += 1
+        if eval_count % checkpoint_every_n_evals == 0:
+            ckpt_path = os.path.join(checkpoint_dir, f"checkpoint_{iter}.pt")
+            save_checkpoint(model, optimizer, iter, losses, ckpt_path, model_config)
 
     # sample a batch of data
     xb, yb = get_batch("train")
@@ -239,8 +264,10 @@ for iter in range(max_iters):
     optimizer.step()
     t2 = time.time()
 
-    print(f"optim step {iter}", f"time {t2 - t1:.2f}")
+    logger.info(f"step {iter}: optim_time={t2 - t1:.2f}s")
 
 # generate from the model
 context = torch.zeros((1, 1), dtype=torch.long, device=device)
-print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
+logger.info(
+    f"Generated text:\n{decode(m.generate(context, max_new_tokens=500)[0].tolist())}"
+)
