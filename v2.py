@@ -1,15 +1,17 @@
+import time
+
 from smart_open import open
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
 # hyperparameters
-batch_size = 64  # how many independent sequences will we process in parallel?
+batch_size = 64 // 2  # how many independent sequences will we process in parallel?
 block_size = 256  # what is the maximum context length for predictions?
 max_iters = 5000
 eval_interval = 300
 learning_rate = 3e-4
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device = "mps"
 eval_iters = 200
 n_embed = 384
 n_head = 6
@@ -218,10 +220,13 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
 for iter in range(max_iters):
     # every once in a while evaluate the loss on train and val sets
+    t1 = time.time()
     if iter % eval_interval == 0:
         losses = estimate_loss()
+        t2 = time.time()
         print(
-            f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}"
+            f"loss step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}",
+            f"time {t2 - t1:.2f}",
         )
 
     # sample a batch of data
@@ -232,6 +237,9 @@ for iter in range(max_iters):
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
     optimizer.step()
+    t2 = time.time()
+
+    print(f"optim step {iter}", f"time {t2 - t1:.2f}")
 
 # generate from the model
 context = torch.zeros((1, 1), dtype=torch.long, device=device)
