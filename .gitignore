@@ -14,4 +14,4 @@ wheels/
 
 .DS_Store
 
-checkpoints/
+*checkpoints/
