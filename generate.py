@@ -6,6 +6,7 @@ import torch
 from smart_open import open as smart_open
 
 from checkpoint import get_latest_checkpoint
+from config import DATA_URL
 from model import GPTLanguageModel
 
 # configure logging with microseconds
@@ -18,11 +19,7 @@ logger = logging.getLogger(__name__)
 
 # load vocab from same source as training
 logger.debug("Loading vocabulary from TinyShakespeare...")
-with smart_open(
-    "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt",
-    "r",
-    encoding="utf-8",
-) as f:
+with smart_open(DATA_URL, "r", encoding="utf-8") as f:
     text = f.read()
 
 chars = sorted(list(set(text)))

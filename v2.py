@@ -6,6 +6,7 @@ from smart_open import open
 import torch
 
 from checkpoint import save_checkpoint
+from config import DATA_URL
 from model import GPTLanguageModel
 
 # configure logging with microseconds
@@ -17,7 +18,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # hyperparameters
-batch_size = 64 // 2  # how many independent sequences will we process in parallel?
+batch_size = 64  # how many independent sequences will we process in parallel?
 block_size = 256  # what is the maximum context length for predictions?
 max_iters = 5000
 eval_interval = 300
@@ -34,11 +35,7 @@ checkpoint_every_n_evals = 3  # save every N evals
 
 torch.manual_seed(1337)
 
-with open(
-    "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt",
-    "r",
-    encoding="utf-8",
-) as f:
+with open(DATA_URL, "r", encoding="utf-8") as f:
     text = f.read()
 
 # here are all the unique characters that occur in this text
